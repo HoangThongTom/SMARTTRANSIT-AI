@@ -1,20 +1,23 @@
 # 🚌 SmartTransit AI — Hệ thống Dự báo Kẹt xe TP.HCM
 
-Hệ thống AI dự báo tình trạng giao thông TP.HCM theo thời gian thực, sử dụng Machine Learning để phân tích dữ liệu lịch sử và đưa ra cảnh báo kẹt xe.
+Hệ thống AI dự báo tình trạng giao thông TP.HCM theo thời gian thực, ứng dụng học máy phân tích chu kỳ thời gian đô thị đô thị và lịch sử trượt vận tốc để cảnh báo mức độ ùn tắc giao thông.
 
 ---
 
 ## 🏗️ Kiến trúc hệ thống
 
-```
-smarttransit-ai/
-├── database/          # Giai đoạn 1: Schema + Mock Data TP.HCM
-├── ai_core/           # Giai đoạn 2: AI Model + Training Pipeline
-├── backend/           # Giai đoạn 3: FastAPI REST API
-└── frontend/          # Giai đoạn 3: Streamlit Dashboard
+
 ```
 
-## 🚀 Khởi động nhanh (Docker)
+smarttransit-ai/
+├── database/         # Schema PostgreSQL + Mock Data Simulator TP.HCM
+├── ai_core/          # Core xử lý dữ liệu (Pandas) + Pipeline huấn luyện (Scikit-learn)
+├── backend/          # REST API (FastAPI) + Công cụ suy luận (Predictor)
+└── frontend/         # Streamlit Web Dashboard trực quan hóa (Folium/Plotly)
+
+```
+
+## 🚀 Khởi động nhanh bằng Docker
 
 ```bash
 # Clone project
@@ -24,119 +27,125 @@ cd smarttransit-ai
 # Copy file cấu hình môi trường
 cp .env.example .env
 
-# Build & chạy toàn bộ hệ thống
-docker-compose up --build
+# Build và chạy toàn bộ hệ thống (Hạ tầng tự động chạy Seeder và Trainer)
+docker-compose up --build -d
 
-# Hoặc chạy từng service
-docker-compose up db          # PostgreSQL
-docker-compose up backend     # FastAPI :8000
-docker-compose up frontend    # Streamlit :8501
+# Kiểm tra các service đang chạy ngầm
+docker-compose ps
+
 ```
 
-## 🔧 Chạy thủ công (không Docker)
+## 🔧 Khởi động thủ công để phát triển (Local Development)
 
-### 1. Cài dependencies
+### 1. Cài đặt các thư viện hệ thống
+
 ```bash
 pip install -r requirements.txt
+
 ```
 
-### 2. Khởi động PostgreSQL & tạo schema
+### 2. Kích hoạt Database và nạp dữ liệu lịch sử
+
 ```bash
-psql -U postgres -c "CREATE DATABASE smarttransit;"
-psql -U postgres -d smarttransit -f database/schema.sql
+# Đảm bảo container postgres_db đang chạy ngầm
+docker-compose up -d db
+
+# Chạy script sinh dữ liệu 6 tháng giả lập thực tế TP.HCM (173,760 bản ghi)
+docker-compose up seeder
+
 ```
 
-### 3. Đổ mock data TP.HCM
+### 3. Huấn luyện Mô hình AI Core
+
 ```bash
-python database/mock_data.py
+# Chạy pipeline xử lý dữ liệu và fit thuật toán học máy
+docker-compose up trainer
+
 ```
 
-### 4. Train AI model
-```bash
-python ai_core/src/data_processing.py
-python ai_core/src/train_pipeline.py
+### 4. Khởi chạy Backend API (FastAPI)
+
+Đứng tại thư mục gốc của dự án, thiết lập đường dẫn tìm kiếm package và kích hoạt server:
+
+```powershell
+# Trên PowerShell (Windows)
+$env:PYTHONPATH="backend"; python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+
 ```
 
-### 5. Khởi động Backend API
-```bash
-cd backend
-uvicorn main:app --reload --port 8000
-```
+### 5. Khởi chạy Giao diện (Streamlit Dashboard)
 
-### 6. Khởi động Frontend
 ```bash
 cd frontend
 streamlit run app.py
+
 ```
 
 ---
 
-## 📡 API Endpoints
+## 📡 Danh sách Cổng API Lõi
 
-| Method | Endpoint | Mô tả |
-|--------|----------|-------|
-| GET | `/` | Health check |
-| GET | `/api/v1/segments` | Danh sách đoạn đường |
-| POST | `/api/v1/predict` | Dự báo mức độ kẹt xe |
-| GET | `/api/v1/realtime` | Trạng thái giao thông hiện tại |
-| GET | `/api/v1/hotspots` | Top điểm kẹt xe nặng nhất |
-| GET | `/api/v1/history/{segment_id}` | Lịch sử một đoạn đường |
+| Method | Endpoint | Quyền truy cập | Mô tả chức năng |
+| --- | --- | --- | --- |
+| GET | `/health` | Public | Kiểm tra sức khỏe hệ thống và kết nối DB |
+| GET | `/api/v1/segments` | Public | Lấy danh sách 20 đoạn đường kèm tọa độ GPS |
+| POST | `/api/v1/predict` | Public | Đẩy thông số bối cảnh, AI trả kết quả dự báo ùn tắc |
+| POST | `/api/v1/predict/batch` | Public | Dự báo lưu lượng lớn hàng loạt đoạn đường cùng lúc |
+| GET | `/api/v1/hotspots` | Public | Trích xuất top các điểm đen giao thông kẹt nặng nhất |
 
-### Ví dụ request dự báo:
+### Cấu trúc dữ liệu yêu cầu dự báo (`POST /api/v1/predict`):
+
 ```json
-POST /api/v1/predict
 {
   "segment_id": "Q1_NTH_001",
   "hour": 17,
   "day_of_week": 2,
   "month": 6,
   "is_holiday": false,
-  "weather_condition": "rain"
+  "weather_condition": "rain",
+  "avg_speed_kmh": null,
+  "vehicle_count": null,
+  "lanes": 4
 }
+
 ```
 
 ---
 
-## 🗺️ Dữ liệu Mock — Các tuyến đường TP.HCM
+## 🤖 Kiến trúc AI Model Core
 
-- **Quận 1**: Nguyễn Trãi, Lê Lợi, Đồng Khởi, Đinh Tiên Hoàng
-- **Quận 3**: Võ Văn Tần, Nam Kỳ Khởi Nghĩa, Cách Mạng Tháng 8
-- **Bình Thạnh**: Đinh Bộ Lĩnh, Xô Viết Nghệ Tĩnh, Bạch Đằng
-- **Tân Bình**: Hoàng Văn Thụ, Cộng Hòa, Trường Chinh
-- **Gò Vấp**: Nguyễn Kiệm, Lê Văn Thọ, Phạm Văn Chiêu
+Mô hình phân loại đa lớp giải quyết bài toán ùn tắc đô thị bằng cách triệt tiêu hiện tượng rò rỉ dữ liệu (Target Leakage), không học các biến hệ quả hiện tại mà tập trung học sâu các đặc trưng chu kỳ bối cảnh và độ trễ lịch sử:
 
----
+* **Thuật toán chính**: Random Forest Classifier (Scikit-learn) kết hợp xử lý chuẩn hóa `StandardScaler`.
+* **Hệ thống Đặc trưng (Features)**:
+* *Thời gian lượng giác*: `hour_sin`, `hour_cos`, `dow_sin`, `dow_cos`, `month_sin`, `month_cos`.
+* *Bối cảnh đô thị*: `is_holiday`, `is_weekend`, `is_rush_hour`, `weather_encoded`, `lanes`.
+* *Độ trễ vận tốc lịch sử*: `speed_lag1h`, `speed_lag24h`, `speed_rolling3h`.
 
-## 🤖 AI Model
 
-- **Thuật toán**: Random Forest Classifier (sklearn)
-- **Features**: giờ, ngày tuần, tháng, tốc độ TB, mưa, ngày lễ, mật độ xe
-- **Labels**: `0=Thông thoáng`, `1=Chậm`, `2=Kẹt nhẹ`, `3=Kẹt nặng`
-- **Accuracy mục tiêu**: ≥ 85% trên tập test
+* **Phân loại Nhãn Đầu ra (Labels)**:
+* `0`: Thông thoáng
+* `1`: Chậm
+* `2`: Kẹt nhẹ
+* `3`: Kẹt nặng
 
----
 
-## 🛠️ Tech Stack
-
-| Layer | Công nghệ |
-|-------|-----------|
-| Database | PostgreSQL 15 |
-| AI/ML | Scikit-learn, Pandas, NumPy |
-| Backend | FastAPI, SQLAlchemy, Uvicorn |
-| Frontend | Streamlit, Folium, Plotly |
-| DevOps | Docker, Docker Compose |
+* **Hiệu năng thực nghiệm**: Đạt **97.45% Accuracy** và **0.9746 F1-Score** trên tập dữ liệu kiểm thử độc lập (Test Split).
 
 ---
 
-## 📊 Giao diện Dashboard
+## 🛠️ Công nghệ Sử dụng (Tech Stack)
 
-- **Bản đồ nhiệt** — Hiển thị điểm kẹt xe theo màu sắc
-- **Biểu đồ theo giờ** — Mức độ ùn tắc theo khung giờ
-- **Dự báo thông minh** — Nhập thông tin, AI trả kết quả ngay
-- **Top điểm đen** — 10 đoạn đường kẹt nhất
+* **Database Layer**: PostgreSQL 18.
+* **Data & AI Pipeline**: Scikit-learn, Pandas, NumPy, PyArrow.
+* **Backend Service**: FastAPI, SQLAlchemy ORM, Uvicorn ASGI Server.
+* **Frontend Dashboard**: Streamlit, Folium Map Engine, Plotly Component.
+* **DevOps**: Docker, Docker Compose Containerization.
 
 ---
 
-## 👥 Đội phát triển
+## 📊 Tính năng trên Web Dashboard
 
-Dự án SmartTransit AI — Giải pháp giao thông thông minh cho TP.HCM 🇻🇳
+* **Interactive Map** — Bản đồ số vẽ các đoạn đường màu Xanh/Vàng/Đỏ trực quan theo thời gian thực.
+* **Congestion Trends** — Biểu đồ phân tích xu hướng kẹt xe theo từng khung giờ bằng Plotly.
+* **Smart Form Inference** — Giao diện form điều chỉnh giả lập bối cảnh để thử nghiệm khả năng phán đoán của AI.
