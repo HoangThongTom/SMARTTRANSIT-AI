@@ -96,7 +96,7 @@ services:
   # ─────────────────────────────────────────
   frontend:
     build:
-      context: ./frontend
+      context: .
       dockerfile: Dockerfile
     container_name: smarttransit_frontend
     restart: always

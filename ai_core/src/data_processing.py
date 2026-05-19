@@ -19,7 +19,7 @@ OUTPUT_TEST  = "ai_core/models/test_data.parquet"
 FEATURE_COLS = [
     "hour", "day_of_week", "month",
     "is_holiday", "is_weekend", "is_rush_hour",
-    "weather_encoded", "avg_speed_kmh", "vehicle_count",
+    "weather_encoded", "vehicle_count",
     "hour_sin", "hour_cos",          # Cyclic encoding cho giờ
     "dow_sin", "dow_cos",            # Cyclic encoding cho ngày
     "month_sin", "month_cos",        # Cyclic encoding cho tháng

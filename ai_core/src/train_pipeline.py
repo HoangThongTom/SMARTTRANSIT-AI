@@ -33,7 +33,7 @@ TARGET_COL = "congestion_level"
 FEATURE_COLS = [
     "hour", "day_of_week", "month",
     "is_holiday", "is_weekend", "is_rush_hour",
-    "weather_encoded", "avg_speed_kmh", "vehicle_count",
+    "weather_encoded", "vehicle_count",
     "hour_sin", "hour_cos",
     "dow_sin", "dow_cos",
     "month_sin", "month_cos",
@@ -53,26 +53,28 @@ CONGESTION_LABELS = {
 # BƯỚC 1: LOAD PROCESSED DATA
 # ─────────────────────────────────────────────────────────────
 def load_data():
-    logger.info("📥 Load dữ liệu đã xử lý...")
-    train = pd.read_parquet(TRAIN_PATH)
-    test  = pd.read_parquet(TEST_PATH)
+    """Load dữ liệu train/test từ parquet và lọc đúng danh sách features."""
+    if not os.path.exists(TRAIN_PATH) or not os.path.exists(TEST_PATH):
+        raise FileNotFoundError("Không tìm thấy dữ liệu parquet. Hãy chạy data_processing.py trước.")
 
-    # Lấy các feature columns tồn tại trong dataframe
-    available_features = [f for f in FEATURE_COLS if f in train.columns]
-    # Thêm các district/road one-hot columns nếu có
-    extra_cols = [c for c in train.columns if c.startswith("dist_") or c.startswith("road_")]
-    all_features = available_features + extra_cols
+    train_df = pd.read_parquet(TRAIN_PATH)
+    test_df = pd.read_parquet(TEST_PATH)
 
-    X_train = train[all_features]
-    y_train = train[TARGET_COL]
-    X_test  = test[all_features]
-    y_test  = test[TARGET_COL]
+    # ❌ DÒNG CŨ BỊ LỖI (Lấy thừa các cột text như road_type, segment_id...):
+    # X_train = train_df.drop(columns=[TARGET_COL])
+    # X_test = test_df.drop(columns=[TARGET_COL])
+
+    # ✅ DÒNG MỚI ĐÃ SỬA (Chỉ trích xuất đúng các cột số nằm trong FEATURE_COLS):
+    X_train = train_df[FEATURE_COLS]
+    X_test = test_df[FEATURE_COLS]
+
+    y_train = train_df[TARGET_COL].astype(int)
+    y_test = test_df[TARGET_COL].astype(int)
 
     logger.success(f"  Train: {X_train.shape} | Test: {X_test.shape}")
-    logger.info(f"  Features: {len(all_features)} cột")
-    return X_train, y_train, X_test, y_test, all_features
-
-
+    logger.info(f"  Features: {len(FEATURE_COLS)} cột")
+    
+    return X_train, y_train, X_test, y_test, FEATURE_COLS
 # ─────────────────────────────────────────────────────────────
 # BƯỚC 2: SCALING
 # ─────────────────────────────────────────────────────────────

@@ -167,19 +167,22 @@ def get_congestion_level(congestion_prob: float, is_rain: bool) -> tuple:
     if prob < 0.2:
         level = 0
         speed = random.uniform(45, 70)
-        vehicles = random.randint(50, 200)
+        base_vehicles = random.randint(50, 200)
     elif prob < 0.5:
         level = 1
         speed = random.uniform(20, 45)
-        vehicles = random.randint(200, 500)
+        base_vehicles = random.randint(200, 500)
     elif prob < 0.75:
         level = 2
         speed = random.uniform(8, 20)
-        vehicles = random.randint(400, 800)
+        base_vehicles = random.randint(400, 800)
     else:
         level = 3
         speed = random.uniform(2, 8)
-        vehicles = random.randint(600, 1200)
+        base_vehicles = random.randint(600, 1200)
+    # Thêm ngẫu nhiên cho lượng xe (để có phân phối thực tế hơn)
+    noise = random.randint(-120, 120)
+    vehicles = max(20, base_vehicles + noise )   
 
     return level, round(speed, 2), vehicles
 
