@@ -1,0 +1,44 @@
+# =============================================
+# SmartTransit AI — Python Dependencies
+# =============================================
+
+# --- Database ---
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.30
+alembic==1.13.1
+
+# --- Data Processing ---
+pandas==2.2.2
+numpy==1.26.4
+scipy==1.13.0
+
+# --- Machine Learning ---
+scikit-learn==1.4.2
+joblib==1.4.2
+xgboost==2.0.3
+imbalanced-learn==0.12.3
+
+# --- Backend API ---
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+pydantic==2.7.1
+python-dotenv==1.0.1
+httpx==0.27.0
+
+# --- Frontend ---
+streamlit==1.35.0
+folium==0.16.0
+streamlit-folium==0.20.0
+plotly==5.22.0
+
+# --- Notebook / EDA ---
+jupyter==1.0.0
+ipykernel==6.29.4
+matplotlib==3.9.0
+seaborn==0.13.2
+
+# --- Utilities ---
+python-dateutil==2.9.0
+pytz==2024.1
+tqdm==4.66.4
+loguru==0.7.2

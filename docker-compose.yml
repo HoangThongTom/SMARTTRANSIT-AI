@@ -1,0 +1,117 @@
+version: "3.9"
+
+services:
+
+  # ─────────────────────────────────────────
+  # PostgreSQL Database
+  # ─────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: smarttransit_db
+    restart: always
+    environment:
+      POSTGRES_DB: smarttransit
+      POSTGRES_USER: smartuser
+      POSTGRES_PASSWORD: smartpass123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartuser -d smarttransit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────
+  # Mock Data Seeder (chạy 1 lần rồi thoát)
+  # ─────────────────────────────────────────
+  seeder:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: smarttransit_seeder
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://smartuser:smartpass123@db:5432/smarttransit
+    command: python /app/database/mock_data.py
+    volumes:
+      - ./database:/app/database
+      - ./ai_core:/app/ai_core
+    restart: "no"
+
+  # ─────────────────────────────────────────
+  # AI Trainer (chạy 1 lần để train model)
+  # ─────────────────────────────────────────
+  trainer:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: smarttransit_trainer
+    depends_on:
+      seeder:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://smartuser:smartpass123@db:5432/smarttransit
+    command: >
+      sh -c "python /app/ai_core/src/data_processing.py &&
+             python /app/ai_core/src/train_pipeline.py"
+    volumes:
+      - ./ai_core:/app/ai_core
+      - ./database:/app/database
+    restart: "no"
+
+  # ─────────────────────────────────────────
+  # FastAPI Backend
+  # ─────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smarttransit_backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://smartuser:smartpass123@db:5432/smarttransit
+      MODEL_PATH: /app/models/traffic_model.joblib
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ai_core/models:/app/models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────
+  # Streamlit Frontend
+  # ─────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: smarttransit_frontend
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      BACKEND_URL: http://backend:8000
+    ports:
+      - "8501:8501"
+
+volumes:
+  pgdata:
+    name: smarttransit_pgdata
+
+networks:
+  default:
+    name: smarttransit_network
